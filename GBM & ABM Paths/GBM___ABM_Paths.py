@@ -23,6 +23,7 @@
 # paths = A dictionary used to return the calculated time array, X array(log prices), and S array(Actual/Simulated prices) from the GeneratePathsGBMABM function.
 
 
+from tokenize import single_quoted
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -71,12 +72,15 @@ def GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, Normalisation):
 
 def Log_Asset_PricePaths():
 
-    NoOfPaths = 25
+    NoOfPaths = 5
     NoOfSteps = 500
     T = 1
     R = 0.05
     Sigma = 0.4
+    MU = 0.15
     S_0 = 100
+    # M = Money savings account.
+    M = lambda r,T: np.exp(R*T)
 
     # Simulation without normalisation
     Paths_No_Norm = GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, False)
@@ -85,8 +89,36 @@ def Log_Asset_PricePaths():
     # Simulation with normalisation
     Paths_With_Norm = GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, True)
     Plot_Path(Paths_With_Norm["time"], Paths_With_Norm["X"], Paths_With_Norm["S"], "(With Z-Norm)")
-    
+
+    # Martingale property checker
+    S = Paths_With_Norm["S"]
+    # ES = Expected Asset Price
+    ES = np.mean(S[:, -1])
+    print(ES)
+    # ESM = Expected Discounted Asset Price
+    ESM = np.mean(S[:, -1]/M(R,T))
+    print(ESM)
+
+    # Monte Carlo Paths
+    PathsQ = GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, True)
+    S_Q = PathsQ["S"]
+    PathsP = GenerateGBMPaths(NoOfPaths, NoOfSteps, T, MU, Sigma, S_0, True)
+    S_P = PathsP["S"]
+    time = PathsQ["time"]
+
+    #Discounted Stock Paths
+    S_QDisc = np.zeros([NoOfPaths, NoOfSteps + 1])
+    S_PDisc = np.zeros([NoOfPaths, NoOfSteps + 1])
+    i = 0
+    for i, ti in enumerate(time):
+        S_QDisc[:, i] = S_Q[:, i]/M(R, ti) 
+        S_PDisc[:, i] = S_P[:, i]/M(R, ti)
+
+    Plot_Discounted_Stock_Path(time, S_0, S, R, T, M, MU, S_QDisc, S_PDisc)
+
     plt.show(block=True)
+
+   
 
 def Plot_Path(time, X, S, title_suffix):
 
@@ -105,5 +137,28 @@ def Plot_Path(time, X, S, title_suffix):
     plt.ylabel("Asset Price S(t) (GBP)")
     plt.title(f"Asset Price {title_suffix}")
     plt.suptitle(f"Simulation {title_suffix}")
+
+def Plot_Discounted_Stock_Path(time, S_0, S, R, T, M, MU, QDISC, PDISC):
+
+    # S(T)/M(T) with Stock growing with rate R
+    plt.figure(3)
+    plt.grid(True)
+    plt.xlabel("Time")
+    plt.ylabel("S(t)")
+    eSM_Q = lambda t: S_0 * np.exp(R * t) / M(R, t)
+    plt.plot(time, eSM_Q(time), 'r--')
+    plt.plot(time, np.transpose(QDISC), 'Blue')
+    plt.legend(['E^Q[S(t)/M(t)]','paths S(t)/M(t)'])
+
+    # S(T)/M(T) with Stock growing with rate MU
+    plt.figure(4)
+    plt.grid(True)
+    plt.xlabel("Time")
+    plt.ylabel("S(t)")
+    eSM_P = lambda t: S_0 * np.exp(MU * t) / M(R, t)
+    plt.plot(time, eSM_P(time), 'r--')
+    plt.plot(time, np.transpose(PDISC), 'Blue')
+    plt.legend(['E^P[S(t)/M(t)]','paths S(t)/M(t)'])
+
 
 Log_Asset_PricePaths()
