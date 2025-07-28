@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>192e6945-a484-4ca6-be9f-880620fff9cc</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>GBM___ABM_Paths.py</StartupFile>
+    <StartupFile>GBM &amp; Poisson &amp; Merton Paths.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,7 +21,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="GBM___ABM_Paths.py" />
+    <Compile Include="GBM &amp; Poisson &amp; Merton Paths.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

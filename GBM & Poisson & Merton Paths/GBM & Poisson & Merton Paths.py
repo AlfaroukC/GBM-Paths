@@ -22,11 +22,9 @@
 # i = The current time step index.
 # paths = A dictionary used to return the calculated time array, X array(log prices), and S array(Actual/Simulated prices) from the GeneratePathsGBMABM function.
 
-
-from tokenize import single_quoted
 import numpy as np
 import matplotlib.pyplot as plt
-
+# GBM Path Generator
 def GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, Normalisation):
 
     if NoOfPaths <= 0:
@@ -68,8 +66,6 @@ def GenerateGBMPaths(NoOfPaths, NoOfSteps, T, R, Sigma, S_0, Normalisation):
 
     S = np.exp(X) # Convert the log prices back to the actual prices
     return {"time":time, "X":X, "S":S}
-
-
 def Log_Asset_PricePaths():
 
     NoOfPaths = 5
@@ -115,11 +111,6 @@ def Log_Asset_PricePaths():
         S_PDisc[:, i] = S_P[:, i]/M(R, ti)
 
     Plot_Discounted_Stock_Path(time, S_0, S, R, T, M, MU, S_QDisc, S_PDisc)
-
-    plt.show(block=True)
-
-   
-
 def Plot_Path(time, X, S, title_suffix):
 
     plt.figure(figsize=(12,6))
@@ -130,6 +121,7 @@ def Plot_Path(time, X, S, title_suffix):
     plt.ylabel("Log Price X(t) (GBP)")
     plt.title(f"Log Price {title_suffix}")
 
+
     plt.subplot(1, 2, 2) # 1 row, 2 columns, 2nd plot
     plt.plot(time, np.transpose(S), alpha=0.5)
     plt.grid(True)
@@ -137,7 +129,6 @@ def Plot_Path(time, X, S, title_suffix):
     plt.ylabel("Asset Price S(t) (GBP)")
     plt.title(f"Asset Price {title_suffix}")
     plt.suptitle(f"Simulation {title_suffix}")
-
 def Plot_Discounted_Stock_Path(time, S_0, S, R, T, M, MU, QDISC, PDISC):
 
     # S(T)/M(T) with Stock growing with rate R
@@ -159,6 +150,106 @@ def Plot_Discounted_Stock_Path(time, S_0, S, R, T, M, MU, QDISC, PDISC):
     plt.plot(time, eSM_P(time), 'r--')
     plt.plot(time, np.transpose(PDISC), 'Blue')
     plt.legend(['E^P[S(t)/M(t)]','paths S(t)/M(t)'])
-
-
 Log_Asset_PricePaths()
+# End of GBM Path Generator
+
+# Poisson Path Generator
+def GeneratePoissonPaths(NoOfPaths, NoOfSteps, T, XIP):
+    # Create empty matrices Maybe this is a waste and should be optimised later.
+    X = np.zeros([NoOfPaths, NoOfSteps + 1])
+    XC = np.zeros([NoOfPaths, NoOfSteps + 1])
+    Time = np.zeros([NoOfSteps + 1])
+    DT = T / NoOfSteps
+    Z = np.random.poisson(XIP * DT, [NoOfPaths, NoOfSteps])
+
+    for i in range(0, NoOfSteps):
+        # Normalisation
+        X[:, i + 1] = X[:, i] + Z[:, i]
+        XC[:, i + 1] = XC[:, i] - XIP * DT + Z[:, i]
+        Time[i + 1] = Time[i] + DT
+
+    Paths = {"Time":Time, "X":X, "XComp":XC}
+    return Paths
+def PoissonCalculation():
+    NoOfPaths = 25
+    NoOfSteps = 500
+    T = 30 
+    XIP = 1
+
+    Paths = GeneratePoissonPaths(NoOfPaths, NoOfSteps, T, XIP)
+    TimeGrid = Paths["Time"]
+    X = Paths["X"]
+    XC = Paths["XComp"]
+
+    plt.figure(5)
+    plt.plot(TimeGrid, np.transpose(X), '-b')
+    plt.title("Poisson Process with X")
+    plt.grid(True)
+    plt.xlabel("Time")
+    plt.ylabel("X(t)")
+
+    plt.figure(6)
+    plt.plot(TimeGrid, np.transpose(XC), '-b')
+    plt.title("Poisson Process with XC")
+    plt.grid()
+    plt.xlabel("time")
+    plt.ylabel("X(t)")
+PoissonCalculation()
+# End of Poisson Path Generator
+
+# Merton Path Generator
+def GenerateMertonPaths(NoOfPaths, NoOfSteps, S0, T, XIP, MuJ, SigmaJ, R, Sigma):
+    # Create empty matrices Maybe this is a waste and should be optimised later
+    X = np.zeros([NoOfPaths, NoOfSteps + 1])
+    S = np.zeros([NoOfPaths, NoOfSteps + 1])
+    Time = np.zeros([NoOfSteps + 1])
+    DT = T / NoOfSteps
+    X[:, 0] = np.log(S0)
+    S[:, 0] = S0
+
+    # Expectation E(e^J) for J~N(MuJ, sigmaJ**2)
+    EeJ = np.exp(MuJ + 0.5 * SigmaJ ** 2)
+
+    ZPois = np.random.poisson(XIP * DT, [NoOfPaths, NoOfSteps])
+    Z = np.random.normal(0.0, 1.0, [NoOfPaths, NoOfSteps])
+    J = np.random.normal(MuJ, SigmaJ, [NoOfPaths, NoOfSteps])
+
+    for i in range(0, NoOfSteps):
+        Z[:, i] = (Z[:, i] - np.mean(Z[:, i])) / np.std(Z[:, i])
+
+        X[:, i + 1] = X[:, i] + (R - XIP * (EeJ - 1) - 0.5 * Sigma ** 2) * DT + Sigma * np.sqrt(DT) * Z[:, i] + J[:, i] * ZPois[:, i]
+        Time[i + 1] = Time[i] + DT
+
+    S = np.exp(X)
+    Paths = {"Time":Time, "X":X, "S":S}
+    return Paths
+def MertonCalculation():
+    NoOfPaths = 25
+    NoOfSteps = 500
+    T = 5
+    XIP = 1
+    MuJ = 0
+    SigmaJ = 0.7
+    Sigma = 0.2
+    S0 = 100
+    R = 0.05
+    Paths = GenerateMertonPaths(NoOfPaths, NoOfSteps, S0, T, XIP, MuJ, SigmaJ, R, Sigma)
+    TimeGrid = Paths["Time"]
+    X = Paths["X"]
+    S = Paths["S"]
+
+    plt.figure(7)
+    plt.plot(TimeGrid, np.transpose(X))
+    plt.title("Merton Process with X")
+    plt.grid(True)
+    plt.xlabel("Time")
+    plt.ylabel("X(t)")
+
+    plt.figure(8)
+    plt.plot(TimeGrid, np.transpose(S))
+    plt.title("Merton Process with S")
+    plt.grid()
+    plt.xlabel("time")
+    plt.ylabel("X(t)")
+MertonCalculation()
+plt.show()
